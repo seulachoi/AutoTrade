@@ -8,7 +8,7 @@ import timeit
 import json
 
 
-#변동성 돌파 & 거래량 급등 종목 단타 - 2021.06.04
+#변동성 돌파 & 거래량 급등 종목 단타 - 2021.06.04 
 
 def autotrade_sara():
     try:
