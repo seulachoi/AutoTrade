@@ -39,8 +39,8 @@ while True:
     # cwd = os.getcwd()  # Get the current working directory (cwd)
     # files = os.listdir(cwd)
 
-    access = 'rxpmtSs1KMsiMVQE7NHaS3thYQA2t4LMOjrNFLIq' #줄바꿈 기호 /n 을 없애기 위해서 strip()
-    secret = 'dx9PxuEUf7j5lPiZ14qBVI0RSkD1DiAfOr544LqD'
+    access = '###' #줄바꿈 기호 /n 을 없애기 위해서 strip()
+    secret = '22@#'
     upbit = pyupbit.Upbit(access, secret) #Upbit라는 클래스 객체 생성 class instance, object 생성
     coin_return = 1.015
         
