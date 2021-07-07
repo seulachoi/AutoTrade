@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import pandas_datareader.data
 import numpy
 import json
+import pprint
 
 
 # <전략1> : 8시 50분부터 9시 15분까지만
@@ -51,7 +52,7 @@ while True:
         
         
 
-        if (now.hour == 8 and 30 <= now.minute <= 59) or (now.hour == 9 and 00 <= now.minute <= 30):
+        if (now.hour == 8 and 00 <= now.minute <= 59) or (now.hour == 9 and 00 <= now.minute <= 30):
             if krw_balance is not None and krw_balance > 0:
 
                 Bollin_tikcer_list_buy=[]
@@ -219,6 +220,11 @@ while True:
                     now_price = pyupbit.get_current_price(ticker)
                     if now_price is None:
                         continue
+                    
+                    # data_morning = pyupbit.get_ohlcv(ticker, "day", count = 50)
+                    # if data_morning is None:
+                    #     continue
+                    # change = (((data_morning.iloc[-1]['close']/data_morning.iloc[-2]['close'])-1)*100)
 
                     #단기 급등 종목: 1분봉 1%이상, 3%미만 상승종목 중 이전 
                     if open_1 < band_high_1 and close_1 > open_1 and head < body*2 and (((now_price/band_high_1)-1)*100) > 0.5 and (((now_price/band_high_1)-1)*100) < 5 and band_width_1 > band_width_1_1*2 and close_3 > open_3 and close_3 > close_3_1 and ((close_3 / bb_center_3 > 1) or (close_3_3 / bb_center_3_3 > 1) or (close_3_2 / bb_center_3_2 > 1) or (close_3_1 / bb_center_3_1 > 1)):
@@ -286,10 +292,6 @@ while True:
                         continue
                     print(Bollin_coin_name)
 
-                    now_price = pyupbit.get_current_price(Bollin_coin_name)
-                    if now_price is None:
-                        continue
-
                     #단기 급등 종목: 1분봉 1%이상, 3%미만 상승종목 중 이전 
                     buy_amount = krw_balance-krw_balance*0.01
                     resp_buy_mkt = upbit.buy_market_order(Bollin_coin_name, buy_amount)  #시장가 매수 주문 
@@ -337,6 +339,7 @@ while True:
 
                             if pyupbit.get_current_price(Bollin_coin_name) >= sell_price:   #현재가가 sell price보다 같거나 높으면 시장가로 지금 던지고
                                 upbit.sell_market_order(Bollin_coin_name, bought_coin_balance)
+                                
                                 print("sell주문") 
                                 
                                 time.sleep(0.5)
@@ -422,7 +425,10 @@ while True:
                 number_21_list=[]
                 number_21_value_list=[]
                 volume_list=[]
+                bollin_coin_name_list=[]
                 coin_return = 1.025 ###수정
+
+                get_balance_list =[]
 
                 tickerlist=pyupbit.get_tickers(fiat="KRW")
                 tickerlist.remove('KRW-BTC')
@@ -439,8 +445,24 @@ while True:
                 tickerlist.remove('KRW-STRK')
                 tickerlist.remove('KRW-MFT')
                 tickerlist.remove('KRW-IOST')
-                tickerlist.remove('KRW-ETC')  
+                tickerlist.remove('KRW-ETC')
 
+                pprint.pprint(upbit.get_balances())
+                balances = upbit.get_balances()
+                for balance in balances:
+                    if float(balance['balance']) > 0 or float(balance['locked']) > 0:
+                        krw = "KRW-"
+                        currency = balance['currency']
+                        krw_currency = krw + currency
+                        print(krw_currency)
+                        get_balance_list.append(krw_currency)
+                print(get_balance_list)
+
+                for ticker in tickerlist:
+                    if ticker in get_balance_list:
+                        print(ticker, "중복")
+                        tickerlist.remove(ticker)
+                
 
                 change_d=pd.Series() #k는 상승률을 받아서 저장할 시리즈 변수
 
@@ -509,18 +531,6 @@ while True:
                     body = close-open
                     print(ticker, close, band_high)
 
-
-                    #직전 5분봉 밴드 상단값 구하기 위해서 슬라이싱 
-                    df_b2=df_raw.iloc[0:-1,]['close'] #Ohlcv에서 close 종가만 추출
-                    if df_b2 is None:
-                        continue
-                    bb_center_b2=numpy.mean(df_b2[len(df_b2)-20:len(df_b2)]) #현재 볼밴 중간값
-                    #print(bb_center, ticker)
-                    band1_b2=unit*numpy.std(df_b2[len(df_b2)-20:len(df_b2)])
-                    band_high_b2=bb_center+band1_b2 #현재 볼밴 상단값
-                    band_low_b2=bb_center-band1_b2  #현재 볼밴 하단값
-
-
                     price = pyupbit.get_current_price(ticker)
                     if price is None:
                         print(ticker, "error")
@@ -564,8 +574,9 @@ while True:
                             trend_false_list.append(trend)
 
                     #현재가가 볼밴 상단 돌파(open은 볼밴 상단보다 아래 위치) + 직전 1분봉 종가 > 밴드 상단 + 15분봉 기준 : 1개전~5개전 분봉의 고점 < 현재가
-                    if price is not None and close_b2 > band_high_b2 and open < band_high and ((price/band_high)-1)*100 > 0.2 and ((price/band_high)-1)*100 < 3 and body > 0 and price > close_b2 and len(trend_false_list) == 0 and head_b2 < body_b2:
-                    # price is not None and price > (open + body_b2*0.5) and open <= bb_center and ((price/bb_center)-1)*100 > 1 and body > 0: ###수정       
+                    if price is not None:
+                    # and open < band_high and ((price/band_high)-1)*100 > 0.2 and ((price/band_high)-1)*100 < 3 and body > 0 and price > close_b2 and len(trend_false_list) == 0 and head_b2 < body_b2
+                    ###수정       
                         Bollin_tikcer_list_A.append(ticker)
                         print(ticker, close_b1_2, band_high_b1)
                     time.sleep(0.1)
@@ -587,7 +598,7 @@ while True:
                     volume = round(volume, 2)
                     
                     #과거 1-5개 분봉 중 볼밴 중앙값을 돌파한 분봉이 있는지 확인
-                    for i in range(0,6):
+                    for i in range(1,6):
                         df_raw = pd.DataFrame(data_c15) 
                         #print(df_raw)              
                         now = datetime.datetime.now()
@@ -654,6 +665,7 @@ while True:
                     time.sleep(10)   
                 else:
                     print(bollin_data)
+                    print("볼린")
                     maxs = bollin_data["volume"].max() #돌파하고 있는 코인들 중 가장 거래량 많은 것을 찾음
                     # print(maxs)
 
@@ -663,7 +675,7 @@ while True:
                     Bollin_coin_price = pyupbit.get_current_price(Bollin_coin_name)
                     if Bollin_coin_price is None:
                         continue
-
+                    print(Bollin_coin_name)        
                     data = pyupbit.get_ohlcv(Bollin_coin_name, "minute5", count = 100)
                     if data is None:
                         continue
@@ -703,12 +715,23 @@ while True:
                     price = pyupbit.get_current_price(Bollin_coin_name)
                     if price is None:
                         continue
-                    
-                    if price is not None and open < band_high and ((price/band_high)-1)*100 > 0.2 and ((price/band_high)-1)*100 < 3 and body > 0 and price > close_b2 and head_b2 < body_b2:
-                        buy_amount = krw_balance-krw_balance*0.01
+
+                    print("매수검사 직전")
+                    print(close_b1_1, open_b1_1)
+                    print(price, open, band_high)
+                    if price is not None:
+                        #and open < band_high and ((price/band_high)-1)*100 > 0.2 and ((price/band_high)-1)*100 < 3 and body > 0 and price > close_b2
+                        if krw_balance > 500000:
+                            buy_amount = (krw_balance-krw_balance*0.01)/2
+                        else:
+                            buy_amount = krw_balance-krw_balance*0.01
+                        
+                        print(buy_amount)
                         resp_buy_mkt = upbit.buy_market_order(Bollin_coin_name, buy_amount)  #시장가 매수 주문 
                         time.sleep(0.5)
                         uuid  = resp_buy_mkt['uuid']
+                        bollin_coin_name_list.append(Bollin_coin_name)
+                        print(bollin_coin_name_list)
 
 
                         #텔레그램으로 보내요
@@ -720,90 +743,77 @@ while True:
                         chat_id = 1653560820
                         bot.sendMessage(chat_id=chat_id, text=result)
                         time.sleep(3)
+
                     else:
                         time.sleep(10)
-
-                    i = 0
-                    while True:
                         
-                        if upbit.get_balance(Bollin_coin_name) > 0:
-                            i = i + 1
-                            print(i, "매도시도")
-
-                            hold = True
-
-                            bought_coin_balance = upbit.get_balance(Bollin_coin_name)
-                            bought_coin_avg_price = upbit.get_avg_buy_price(Bollin_coin_name)
+                    if upbit.get_balance(Bollin_coin_name) > 0:
+                        hold = True
+                        bought_coin_balance = upbit.get_balance(Bollin_coin_name)
+                        bought_coin_avg_price = upbit.get_avg_buy_price(Bollin_coin_name)
+                        if ((pyupbit.get_current_price(Bollin_coin_name) / bought_coin_avg_price)-1)*100 > -5:
                             
-                            forsell_price = pyupbit.get_current_price(Bollin_coin_name)
-                            if forsell_price is None:
-                                continue
-
-                            #bollin coin name의 현재가가 매수가보다 % 높으면, return target을 높임
-                            if forsell_price is not None and forsell_price > bought_coin_avg_price*1.05:
-                                sell_price = bought_coin_avg_price*1.05
-                            elif forsell_price is not None and forsell_price > bought_coin_avg_price*1.04:
-                                sell_price = bought_coin_avg_price*1.04
-                            else:
-                                sell_price = bought_coin_avg_price*coin_return
-                            print(sell_price)
-
-                            if forsell_price >= sell_price:   #현재가가 sell price보다 같거나 높으면 시장가로 지금 던지고
-                                upbit.sell_market_order(Bollin_coin_name, bought_coin_balance)
-                                print("sell주문") 
+                            sell_price = bought_coin_avg_price*coin_return
+                            sell_price_limit = numpy.around(sell_price)
+                            print(sell_price_limit)
+                            
+                            # upbit.sell_market_order(Bollin_coin_name, bought_coin_balance)
+                            resp = upbit.sell_limit_order(Bollin_coin_name, sell_price_limit, bought_coin_balance)
+                            print("sell주문") 
+                            pprint.pprint(resp)
+                            
+                            time.sleep(2)
+                            if upbit.get_balance(Bollin_coin_name) == 0:
+                                hold = False
+                                krw_result_balance = upbit.get_balance("KRW")
+                                print("팔림")
                                 
-                                time.sleep(2)
-                                if upbit.get_balance(Bollin_coin_name) == 0:
-                                    hold = False
-                                    krw_result_balance = upbit.get_balance("KRW")
-                                    print("팔림")
-                                    
-                                    return_sold_c = ((krw_result_balance / krw_balance)- 1)*100
-                                    return_sold ="{:.2f}".format(return_sold_c)
+                                # return_sold_c = ((krw_result_balance / krw_balance)- 1)*100
+                                # return_sold ="{:.2f}".format(return_sold_c)
 
-                                    timenow = datetime.datetime.now()
-                                    result = f"현재시간: {timenow} 종목: {Bollin_coin_name} 수익률: {return_sold} Balance: {krw_result_balance} sellprice: {round(sell_price,2)}"
-                                    print(f"현재시간: {timenow} 종목: {Bollin_coin_name} 수익률: {return_sold} 보유상태: {hold}")
-                                    
-                                    #수익률 텔레그램으로 보내요
-                                    chat_token = "1827470195:AAGzfwuZtBxbind09ivsdDtcrHfb8tjkAic"
-                                    telegram_chat_id = 1653560820
-                                    bot = telegram.Bot(token = chat_token)
-                                    bot.sendMessage(chat_id = telegram_chat_id, text = result)
-                                    time.sleep(90)
-                                    break
-                            elif ((pyupbit.get_current_price(Bollin_coin_name) / bought_coin_avg_price)-1)*100 <= -5: #5%이상 손실이면 시장가 손절
-                                upbit.sell_market_order(Bollin_coin_name, bought_coin_balance)
-                                time.sleep(1)
-
-                                if upbit.get_balance(Bollin_coin_name) == 0:
-
-                                    hold = False
-                                    krw_result_balance = upbit.get_balance("KRW")
-                                    print("손절")
-                                    
-                                    return_sold_c = ((krw_result_balance / krw_balance)- 1)*100
-                                    return_sold ="{:.2f}".format(return_sold_c)
-
-                                    timenow = datetime.datetime.now()
-                                    result = f"현재시간: {timenow} 종목: {Bollin_coin_name} 수익률: {return_sold} Balance: {krw_result_balance} 손절"
-                                    print(f"현재시간: {timenow} 종목: {Bollin_coin_name} 수익률: {return_sold} 보유상태: {hold} 손절")
-                                    
-                                    #수익률 텔레그램으로 보내요
-                                    chat_token = "1827470195:AAGzfwuZtBxbind09ivsdDtcrHfb8tjkAic"
-                                    telegram_chat_id = 1653560820
-                                    bot = telegram.Bot(token = chat_token)
-                                    bot.sendMessage(chat_id = telegram_chat_id, text = result)
-                                    time.sleep(90)
-                                    break
+                                timenow = datetime.datetime.now()
+                                result = f"현재시간: {timenow} 종목: {Bollin_coin_name} Balance: {krw_result_balance} sellprice: {round(sell_price,2)}"
+                                print(f"현재시간: {timenow} 종목: {Bollin_coin_name} 보유상태: {hold}")
                                 
-                            else:
-                                #print("unsold")
-                                time.sleep(0.5)
+                                #수익률 텔레그램으로 보내요
+                                chat_token = "1827470195:AAGzfwuZtBxbind09ivsdDtcrHfb8tjkAic"
+                                telegram_chat_id = 1653560820
+                                bot = telegram.Bot(token = chat_token)
+                                bot.sendMessage(chat_id = telegram_chat_id, text = result)
+                                time.sleep(10)
+                                break
+                        elif ((pyupbit.get_current_price(Bollin_coin_name) / bought_coin_avg_price)-1)*100 <= -5: #5%이상 손실이면 시장가 손절
+                            upbit.sell_market_order(Bollin_coin_name, bought_coin_balance)
+                            time.sleep(1)
+
+                            if upbit.get_balance(Bollin_coin_name) == 0:
+
+                                hold = False
+                                krw_result_balance = upbit.get_balance("KRW")
+                                print("손절")
+                                
+                                return_sold_c = ((krw_result_balance / krw_balance)- 1)*100
+                                return_sold ="{:.2f}".format(return_sold_c)
+
+                                timenow = datetime.datetime.now()
+                                result = f"현재시간: {timenow} 종목: {Bollin_coin_name} 수익률: {return_sold} Balance: {krw_result_balance} 손절"
+                                print(f"현재시간: {timenow} 종목: {Bollin_coin_name} 수익률: {return_sold} 보유상태: {hold} 손절")
+                                
+                                #수익률 텔레그램으로 보내요
+                                chat_token = "1827470195:AAGzfwuZtBxbind09ivsdDtcrHfb8tjkAic"
+                                telegram_chat_id = 1653560820
+                                bot = telegram.Bot(token = chat_token)
+                                bot.sendMessage(chat_id = telegram_chat_id, text = result)
+                                time.sleep(90)
+                                break
+                            
                         else:
-                            time.sleep(60)
-                            break
-                        
+                            #print("unsold")
+                            time.sleep(0.5)
+                    else:
+                        time.sleep(1)
+                        break
+                    
                     
                 print("끝")
                 time.sleep(5)
